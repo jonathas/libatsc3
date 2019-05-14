@@ -5,6 +5,7 @@
  *      Author: jjustman
  */
 #include "atsc3_player_ffplay.h"
+#include <pthread.h>
 
 int _PLAYER_FFPLAY_DEBUG_ENABLED = 1;
 int _PLAYER_FFPLAY_TRACE_ENABLED = 0;
@@ -216,6 +217,10 @@ void sigpipe_register_action_handler(pipe_ffplay_buffer_t**  pipe_ffplay_buffer_
 	__last_pipe_ffplayer_buffer_t_p = pipe_ffplay_buffer_p;
 }
 
+void *open_browser() {
+	int status = system("surf 24i.com > browser.errors 2>&1");
+}
+
 void __pipe_create_deferred_ffplay(pipe_ffplay_buffer_t* pipe_ffplay_buffer) {
 
 	//set a default value
@@ -230,13 +235,20 @@ void __pipe_create_deferred_ffplay(pipe_ffplay_buffer_t* pipe_ffplay_buffer) {
 	//linux ffplay doesn't like -left 0 or -top 0
 	// scale=iw*.5:ih*.5:flags=bicubic
 	char cmd[2048];
-	snprintf((char*)cmd, 2048, "ffplay -loglevel debug -infbuf -err_detect ignore_err -hide_banner -nostats -vf \"%sdrawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: timecode_rate=%.2f: timecode='00\\:00\\:00\\:00': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=550:y=h-th-50, drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: text='%%{pts}': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=500-tw:y=h-th-50, drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: text='%%{eif\\:n/25*90000\\:d}': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=500-tw:y=h-th-150, drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: text='%%{pict_type}': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=10-tw:y=th+10\"  - > ffplay.errors 2>&1", fps_for_playback_option, fps_for_timecode);
-    __PLAYER_FFPLAY_INFO("creating player with args: %s", cmd);
+	/*snprintf((char*)cmd, 2048, "ffplay -loglevel debug -infbuf -err_detect ignore_err -hide_banner -nostats -vf \"%sdrawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: timecode_rate=%.2f: timecode='00\\:00\\:00\\:00': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=550:y=h-th-50, drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: text='%%{pts}': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=500-tw:y=h-th-50, drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: text='%%{eif\\:n/25*90000\\:d}': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=500-tw:y=h-th-150, drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc: fix_bounds=1: shadowx=2: shadowy=2: text='%%{pict_type}': fontcolor=white: fontsize=96: box=1: boxcolor=black@0.4: x=10-tw:y=th+10\"  - > ffplay.errors 2>&1", fps_for_playback_option, fps_for_timecode);
+    __PLAYER_FFPLAY_INFO("creating player with args: %s", cmd);*/
+
+	snprintf((char*) cmd, 2048, "gst-launch-1.0 -v fdsrc ! video/x-raw ! rtph264pay config-interval=1 pt=96 ! gdppay ! tcpserversink host=127.0.0.1 port=5000 > gstreamer.errors 2>&1");
     
 	if ( !(pipe_ffplay_buffer->player_pipe = popen(cmd, "w")) ) {
 		__PLAYER_FFPLAY_ERROR("unable to create pipe for cmd: %s", cmd);
 		return;
 	}
+
+	// TODO: Extract HELD information from stream
+
+	pthread_t threads[1];
+	pthread_create(&threads[0], NULL, open_browser, (void *)0);
 
 	//use this for capturing the reconstitued mpu for troubleshooting
 	//	pipe_ffplay_buffer->player_pipe = fopen("mpu/recon.m4v", "w");
